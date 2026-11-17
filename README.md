@@ -91,3 +91,6 @@ Sí: los datos de `firebase-config.js` **no son contraseñas**, están pensados 
 
 ## Foto de perfil
 Con la sesión iniciada, en **Mi perfil → Subir foto de perfil** puedes elegir una imagen. Se recorta y se reduce a 96×96 px y se guarda en tu perfil (Firestore, no hace falta Firebase Storage). Aparece junto a tu nombre en la barra de puntos y en tu tablero, y tus amigos la ven también en partidas en línea.
+
+## Consejos (apagados por defecto)
+Durante la partida, el botón **🎓 Consejos** los activa o desactiva. Al activarlos aparecen **💡 Pista** (resalta la mejor jugada) y **📒 Mis jugadas** (tu registro). Cada jugada se compara con la que elegiría la computadora en modo difícil; al final de la partida ves un repaso con consejos. Con sesión iniciada, el repaso se guarda en tu perfil (**Ver jugadas** en el historial). Todo se calcula en tu navegador.

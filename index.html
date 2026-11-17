@@ -159,6 +159,13 @@ body.playing .status.confirm{background:#fff3c4;border-color:var(--gold)}
 .chip .av{margin-left:-6px;margin-right:-2px}.board header .av{width:30px;height:30px;margin-right:6px}
 .av.big{width:96px;height:96px}.avbig{text-align:center;margin-bottom:6px}.av.ph{display:inline-flex;align-items:center;justify-content:center;background:#e6eef6;font-size:44px}
 .photobtns{text-align:center;margin-bottom:8px}
+.hintbox{background:#fff4d6;border:2px solid #e0a526;border-radius:12px;padding:8px 12px;margin:6px 0;font-size:15px}
+.tbtn.hintsrc,[data-wallcol].hintsrc{outline:3px solid #e0a526;outline-offset:2px;border-radius:8px;animation:hintp 1s ease-in-out infinite}
+.pat.hintline,.floor.hintline{box-shadow:0 0 0 3px #e0a526aa;border-radius:8px}
+@keyframes hintp{50%{outline-color:#e0a52655}}
+.mlog,.tips{list-style:none;padding:0;margin:6px 0;text-align:left;font-size:14px}.mlog li{padding:5px 0;border-bottom:1px solid #d9e2ec}.mbest{font-size:13px;color:#2d5a7b;margin:2px 0 0 22px}
+.tips li{padding:3px 0 3px 18px;position:relative}.tips li:before{content:'💡';position:absolute;left:0}
+.rev{margin:10px 0;text-align:left}.hrev{margin-top:6px;background:#fffdf6;border-radius:8px;padding:4px 8px}
 </style>
 </head>
 <body>
@@ -417,10 +424,10 @@ function aiChoose(s){
 // ============================================================
 const AI_NAMES=['Lola','Hugo','Marta'];
 const App={screen:'menu',state:null,mySeat:0,name:'',cfg:{opp:1,level:'normal',variant:false},
-  seats:[],pmap:[],code:'',isHost:false,sel:null,rules:false,joinCode:'',joinMsg:'',timer:null,online:false,statusMsg:'',animOn:true,hints:true,view:null,hl:null,animating:false,animTimer:null,
+  seats:[],pmap:[],code:'',isHost:false,sel:null,rules:false,joinCode:'',joinMsg:'',timer:null,online:false,statusMsg:'',animOn:true,hints:true,view:null,hl:null,log:[],logGid:'',hint:null,showLog:false,openGame:-1,animating:false,animTimer:null,
   authTab:'login',authMsg:'',authForm:{email:'',user:''},afterAuth:'menu',recorded:'',warnKey:'',pending:null,pendTimer:null,undo:[]};
 const NET={peer:null,hostConn:null};
-try{App.name=localStorage.getItem('azul_name')||'';App.animOn=localStorage.getItem('azul_anim')!=='0';App.hints=localStorage.getItem('azul_hints')!=='0';}catch(e){}
+try{App.name=localStorage.getItem('azul_name')||'';App.animOn=localStorage.getItem('azul_anim')!=='0';App.hints=localStorage.getItem('azul_hints')!=='0';App.coach=localStorage.getItem('azul_coach')==='1';}catch(e){}
 const $=id=>document.getElementById(id);
 const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const myPhoto=()=>(typeof Acc!=='undefined'&&Acc.user&&Acc.profile&&Acc.profile.photo)||'';
@@ -503,7 +510,7 @@ function profileH(){
   const hist=(p.history||[]).slice(0,10);
   h+=`<h3 style="text-align:left;margin-top:14px">Últimas partidas</h3>`;
   if(!hist.length)h+=`<p class="muted">Todavía no has terminado ninguna partida con este perfil.</p>`;
-  else h+=`<ul class="hist">${hist.map(x=>`<li>${resLabel(x.res)} · <b>${x.score}</b> pts · ${x.mode==='online'?'con amigos':'vs computadora'}${x.opp&&x.opp.length?' ('+x.opp.map(esc).join(', ')+')':''} <span class="muted">· ${new Date(x.t).toLocaleDateString('es')}</span></li>`).join('')}</ul>`;
+  else h+=`<ul class="hist">${hist.map((x,i)=>`<li>${resLabel(x.res)} · <b>${x.score}</b> pts · ${x.mode==='online'?'con amigos':'vs computadora'}${x.opp&&x.opp.length?' ('+x.opp.map(esc).join(', ')+')':''} <span class="muted">· ${new Date(x.t).toLocaleDateString('es')}</span>${x.moves&&x.moves.length?` <button class="btn small alt" data-act="histopen" data-v="${i}">${App.openGame===i?'Ocultar jugadas':'Ver jugadas'}</button>`:''}${App.openGame===i&&x.moves?`<div class="hrev">${reviewH(x.moves)}${adviceH(x.moves)}</div>`:''}</li>`).join('')}</ul>`;
   h+=`<button class="btn alt" data-act="authback">Volver</button><button class="btn small alt" data-act="logout">Cerrar sesión</button></div>`;
   return h;
 }
@@ -707,6 +714,7 @@ function statusH(s){
   return `<div class="status ${mine?'mine':''}"><div>${main}${sub?`<small>${sub}</small>`:''}</div>${btn}</div>`;
 }
 function overlayH(s){
+  if(App.showLog&&App.coach)return `<div class="ov"><div class="card"><h2>📒 Mis jugadas</h2>${reviewH(App.logGid===s.gid?App.log:[])}${adviceH(App.logGid===s.gid?App.log:[])}<button class="btn" data-act="closelog">Cerrar</button></div></div>`;
   if(App.rules)return `<div class="ov"><div class="card rules">${rulesH()}<button class="btn" data-act="closerules">Cerrar</button></div></div>`;
   if(s.phase==='over'){
     let h=`<div class="ov"><div class="card"><h2>${s.winners.length>1?'¡Empate!':'¡Fin de la partida!'}</h2>
@@ -715,6 +723,7 @@ function overlayH(s){
     s.players.forEach((p,i)=>{const f=s.final[i];
       h+=`<tr class="${s.winners.includes(i)?'win':''}"><td>${esc(p.name)}</td><td>${f.rows}</td><td>${f.cols}</td><td>${f.sets}</td><td><b>${p.score}</b></td></tr>`;});
     h+='</table>';
+    if(App.coach&&App.logGid===s.gid&&App.log.length)h+=`<details class="rev" open><summary><b>📒 Repaso de tus jugadas</b></summary>${reviewH(App.log)}${adviceH(App.log)}</details>`;
     if(Acc.enabled&&Acc.ready&&!Acc.user&&!Acc.failed)h+=`<p class="muted">💡 Crea un perfil desde el menú para guardar tus victorias y derrotas.</p>`;
     if(!App.online||App.isHost)h+=`<button class="btn gold" data-act="again">Jugar otra vez</button>`;
     else h+=`<p class="muted">Esperando a que el anfitrión inicie otra partida…</p>`;
@@ -738,8 +747,8 @@ function gameH(){
   const lv=lastRoundLevel(s);
   const badge=lv==='sure'?' · <span class="lastb">🏁 ¡Última ronda!</span>':lv==='maybe'?' · <span class="lastm">⚠ Podría ser la última</span>':'';
   return `${scoreH(s)}<div class="top"><div><b>Ronda ${s.round}</b>${badge} <span class="info">· Bolsa: ${bag}${s.variant?' · Variante':''}</span></div>
-    <div class="btns">${App.online?'':`<button class="btn small alt" data-act="undo" ${canUndo()?'':'disabled'} title="Deshacer tu última jugada (Ctrl+Z)">↩ Deshacer</button> `}<button class="btn small alt" data-act="anim">✨ Animación: ${App.animOn?'sí':'no'}</button> <button class="btn small alt" data-act="hints" title="Muestra u oculta el recuadro amarillo con lo que debes hacer">💡 Ayudas: ${App.hints?'sí':'no'}</button> <button class="btn small alt" data-act="rules">📖 Reglas</button> <button class="btn small alt" data-act="leave">Salir</button></div></div>
-    ${statusH(s)}
+    <div class="btns">${App.online?'':`<button class="btn small alt" data-act="undo" ${canUndo()?'':'disabled'} title="Deshacer tu última jugada (Ctrl+Z)">↩ Deshacer</button> `}<button class="btn small alt" data-act="anim">✨ Animación: ${App.animOn?'sí':'no'}</button> <button class="btn small alt" data-act="hints" title="Muestra u oculta el recuadro amarillo con lo que debes hacer">💡 Ayudas: ${App.hints?'sí':'no'}</button> <button class="btn small alt" data-act="coach" title="Pista, registro de tus jugadas y consejos">🎓 Consejos: ${App.coach?'sí':'no'}</button> ${App.coach?`<button class="btn small alt" data-act="hint">💡 Pista</button> <button class="btn small alt" data-act="showlog">📒 Mis jugadas</button> `:''}<button class="btn small alt" data-act="rules">📖 Reglas</button> <button class="btn small alt" data-act="leave">Salir</button></div></div>
+    ${statusH(s)}${hintBoxH(s)}
     <div class="stage"><div class="tcol">${marketH(s)}</div><div class="boards">${order.map(i=>boardH(s,i)).join('')}</div></div>
     ${overlayH(s)}`;
 }
@@ -757,6 +766,7 @@ function render(){
   const sc=App.screen;
   document.body.classList.toggle('playing',sc==='game');
   $('app').innerHTML=sc==='menu'?menuH():sc==='vs'?vsH():sc==='lobby'?lobbyH():sc==='join'?joinH():sc==='auth'?authH():sc==='profile'?profileH():gameH();
+  applyHint();
 }
 
 // ---------- Acciones de la interfaz ----------
@@ -838,6 +848,84 @@ document.addEventListener('keydown',e=>{
   if(e.key==='Enter'&&e.target.id==='cd')acts.join();
 });
 
+// ---------- Consejos: registro de jugadas, pista y repaso (apagado por defecto) ----------
+function moveInfo(s,pi,m){
+  const p=s.players[pi],src=m.src===-1?s.center:s.factories[m.src];
+  const k=src.reduce((a,t)=>a+(t===m.color),0);
+  let toFloor=k,completes=false;
+  if(m.line<5){const L=p.lines[m.line],put=Math.min(m.line+1-L.count,k);toFloor=k-put;completes=L.count+put===m.line+1;}
+  return {k,toFloor,completes,marker:m.src===-1&&!!s.markerInCenter};
+}
+function bestMoveOf(s){
+  let best=null,bv=-1e9;
+  for(const m of legalMoves(s)){const v=evalMove(s,s.current,m,'hard');if(v>bv){bv=v;best=m;}}
+  return {best,bv};
+}
+function rateMove(s,a){
+  const pi=s.current,{best,bv}=bestMoveOf(s);if(!best)return null;
+  const cv=evalMove(s,pi,a,'hard'),ci=moveInfo(s,pi,a),bi=moveInfo(s,pi,best);
+  const same=best.src===a.src&&best.color===a.color&&best.line===a.line;
+  const loss=same?0:Math.max(0,bv-cv);let why='';
+  if(loss>=0.8){why=bi.toFloor<ci.toFloor?'f':(bi.completes&&!ci.completes)?'c':(ci.marker&&!bi.marker)?'m':'p';}
+  return {r:s.round,c:a.color,k:ci.k,s:a.src,l:a.line,q:Math.round(loss*10)/10,fl:ci.toFloor,
+    b:loss>=0.8?{c:best.color,k:bi.k,s:best.src,l:best.line}:null,y:why};
+}
+const mvText=(c,k,src,l)=>`${k} ${cname(c,k)} ${src===-1?'del centro':'de la fábrica '+(src+1)} → ${l===5?'al suelo':'línea '+(l+1)}`;
+const WHY={f:'La jugada sugerida mandaba menos azulejos al suelo (el suelo resta puntos).',
+  c:'La jugada sugerida completaba una línea: así pasas un azulejo a tu pared y sumas puntos.',
+  m:'Tomabas la ficha de inicial (resta 1 punto) y había otra opción sin ese castigo.',
+  p:'La jugada sugerida te deja mejor armado para sumar puntos (filas, columnas y colores juntos).'};
+const verdict=q=>q===0?['✅','Mejor jugada']:q<0.8?['👍','Buena']:q<2.5?['⚠️','Mejorable']:['❌','Error'];
+function sumLog(L){
+  const o={n:L.length,best:0,good:0,bad:0,floor:0};
+  L.forEach(m=>{if(m.q===0)o.best++;if(m.q<0.8)o.good++;if(m.q>=2.5)o.bad++;o.floor+=m.fl||0;});
+  return o;
+}
+function adviceH(L){
+  if(!L.length)return '';
+  const u=sumLog(L),tips=[];
+  if(u.floor>=6)tips.push('Mandaste muchos azulejos al suelo ('+u.floor+'). Antes de tomar, cuenta cuántos caben en la línea: si sobran muchos, elige otro color o una línea más grande.');
+  if(L.some(m=>m.y==='m'))tips.push('Tomar del centro al principio te obliga a llevarte la ficha de inicial (−1). Hazlo cuando valga la pena.');
+  if(L.some(m=>m.y==='c'))tips.push('Prioriza completar líneas: un azulejo en tu pared siempre suma, y mientras más juntos, más puntos.');
+  if(u.bad>=3)tips.push('Antes de elegir, mira dónde cabe cada color: evita líneas que ya tienen otro color o cuyo color ya está en tu pared.');
+  tips.push('Construye filas y columnas pegadas: cada azulejo nuevo cuenta también los vecinos que ya tienes.');
+  tips.push('Fíjate en lo que dejas para el siguiente jugador: si le dejas justo lo que necesita, se lo regalas.');
+  return `<h3 style="text-align:left;margin:12px 0 4px">Consejos para mejorar</h3><ul class="tips">${tips.slice(0,4).map(t=>`<li>${t}</li>`).join('')}</ul>`;
+}
+function reviewH(L){
+  if(!L||!L.length)return '<p class="muted">Todavía no hay jugadas registradas.</p>';
+  const u=sumLog(L);
+  return `<p style="margin:6px 0"><b>${u.best}</b> de ${u.n} jugadas fueron la mejor opción · <b>${u.good}</b> buenas o mejores · <b>${u.bad}</b> errores</p>
+  <ul class="mlog">${L.map(m=>{const [ic,t]=verdict(m.q);
+    return `<li>${ic} <small>R${m.r}</small> ${mvText(m.c,m.k,m.s,m.l)}${m.q>0?` <small class="muted">(${t})</small>`:''}${m.b?`<div class="mbest">Mejor: ${mvText(m.b.c,m.b.k,m.b.s,m.b.l)}. ${WHY[m.y]||''}</div>`:''}</li>`;}).join('')}</ul>`;
+}
+function hintValid(s){return App.hint&&s&&App.hint.key===`${s.gid}:${s.moveNo}:${s.phase}:${s.wallTask?s.wallTask.r:''}`;}
+function giveHint(){
+  const s=App.state;if(!s||App.animating||s.phase==='over')return;
+  const me=App.mySeat,key=`${s.gid}:${s.moveNo}:${s.phase}:${s.wallTask?s.wallTask.r:''}`;
+  if(s.phase==='pick'&&s.current===me){
+    const {best}=bestMoveOf(s);if(!best)return;const i=moveInfo(s,me,best);
+    App.hint={key,mv:best,msg:`Pista: toma ${mvText(best.color,i.k,best.src,best.line)}${i.completes?' (completa la línea)':i.toFloor?` (${i.toFloor} caerán al suelo)`:''}.`};
+  }else if(s.phase==='wall'&&s.wallTask&&s.wallTask.p===me&&s.wallTask.opts.length>1){
+    const w=s.wallTask,b=bestColScore(s,me,w.r,w.color,w.opts);
+    App.hint={key,col:b.col,r:w.r,msg:`Pista: la columna ${b.col+1} es la que más puntos te da.`};
+  }else{toast('No hay nada que sugerir ahora mismo.');return;}
+  render();
+}
+function hintBoxH(s){return App.coach&&hintValid(s)?`<div class="hintbox">💡 ${App.hint.msg}</div>`:'';}
+function applyHint(){
+  const s=App.state;if(!App.coach||!hintValid(s)||App.animating)return;
+  const h=App.hint;
+  if(h.mv){
+    document.querySelectorAll(`.tbtn[data-src="${h.mv.src}"][data-color="${h.mv.color}"]`).forEach(e=>e.classList.add('hintsrc'));
+    const rows=document.querySelectorAll('.board.me .pat');
+    if(h.mv.line<5&&rows[h.mv.line])rows[h.mv.line].classList.add('hintline');
+    else if(h.mv.line===5){const f=document.querySelector('.board.me .floor');if(f)f.classList.add('hintline');}
+  }else if(h.col!==undefined){
+    const c=document.querySelector(`[data-wallcol="${h.col}"]`);if(c)c.classList.add('hintsrc');
+  }
+}
+
 // ---------- Foto de perfil ----------
 function resizePhoto(file){return new Promise((ok,bad)=>{
   const img=new Image(),url=URL.createObjectURL(file);
@@ -894,7 +982,7 @@ function scheduleAI(){
 }
 function hostAction(i,a){
   const s=App.state;if(!s||!a)return;
-  const P=clone(s);let ok=false;
+  const P=clone(s);P.logLen=(App.logGid===s.gid?App.log.length:0);let ok=false;
   if(a.t==='move'&&s.phase==='pick'&&i===s.current&&!s.players[i].ai)ok=applyMove(s,a);
   else if(a.t==='wall'&&s.phase==='wall'&&s.wallTask&&s.wallTask.p===i&&!s.players[i].ai&&s.wallTask.opts.includes(a.col)){
     placeOnWall(s,i,s.wallTask.r,a.col);s.wallQueue.shift();processWall(s);ok=true;}
@@ -918,6 +1006,8 @@ function doUndo(){
   while(App.undo.length){const c=App.undo.pop();if(c.gid===s.gid&&c.round===s.round){snap=c;break;}}
   if(!snap)return;
   stopAnim();clearTimeout(App.timer);cancelPendingQuiet();
+  if(App.logGid===snap.gid&&snap.logLen!==undefined)App.log.length=Math.min(App.log.length,snap.logLen);
+  delete snap.logLen;App.hint=null;
   App.state=snap;App.sel=null;render();scheduleAI();
   toast('↩ Jugada deshecha',1800);
 }
@@ -944,8 +1034,15 @@ function confirmPending(){
   if(!App.isHost){App.sel=null;render();}   // el anfitrión se redibuja solo al aplicar la jugada
 }
 function doAction(a){
-  if(App.isHost)hostAction(App.mySeat,a);
-  else if(NET.hostConn&&NET.hostConn.open)NET.hostConn.send({t:'action',a});
+  let rec=null;const s0=App.state;
+  if(App.coach&&a&&a.t==='move'&&s0&&s0.phase==='pick'&&s0.current===App.mySeat){try{rec=rateMove(s0,a);}catch(e){}}
+  if(App.isHost){
+    const n0=s0?s0.moveNo:-1;hostAction(App.mySeat,a);
+    if(rec&&App.state&&App.state.moveNo!==n0){if(App.logGid!==s0.gid){App.log=[];App.logGid=s0.gid;}App.log.push(rec);}
+  }else if(NET.hostConn&&NET.hostConn.open){
+    NET.hostConn.send({t:'action',a});
+    if(rec){if(App.logGid!==s0.gid){App.log=[];App.logGid=s0.gid;}App.log.push(rec);}
+  }
 }
 
 // ---------- Animación ----------
@@ -1218,7 +1315,8 @@ function maybeRecord(P,N){
   const me=App.mySeat,w=N.winners||[];
   const res=w.includes(me)?(w.length>1?'tie':'win'):'loss';
   accRecord({t:Date.now(),mode:App.online?'online':'cpu',n:N.n,score:N.players[me].score,res,
-    opp:N.players.filter((p,i)=>i!==me).map(p=>p.name)})
+    opp:N.players.filter((p,i)=>i!==me).map(p=>p.name),
+    ...(App.coach&&App.logGid===N.gid&&App.log.length?{moves:App.log.slice(0,40)}:{})})
     .then(()=>toast('✓ Resultado guardado en tu perfil'),e=>toast('No se pudo guardar el resultado: '+authErr(e),5000));
 }
 // ---------- formularios ----------
@@ -1243,6 +1341,11 @@ Object.assign(acts,{
   authback(){App.authMsg='';App.screen=(App.afterAuth==='join'&&App.screen==='auth')?'join':'menu';if(App.screen==='menu')App.afterAuth='menu';render();},
   profile(){App.screen='profile';render();},
   delphoto(){savePhoto('');},
+  coach(){App.coach=!App.coach;App.hint=null;try{localStorage.setItem('azul_coach',App.coach?'1':'0');}catch(e){}toast(App.coach?'🎓 Consejos activados: se registran tus jugadas desde ahora.':'Consejos desactivados',2600);render();},
+  hint(){giveHint();},
+  showlog(){App.showLog=true;render();},
+  closelog(){App.showLog=false;render();},
+  histopen(el){const i=+el.dataset.v;App.openGame=App.openGame===i?-1:i;render();},
   async logout(){try{await Acc.auth.signOut();}catch(e){}Acc.user=null;Acc.profile=null;toast('Sesión cerrada');if(App.screen==='profile')App.screen='menu';render();},
   async dologin(){
     readAuthForm();const email=App.authForm.email,pw=($('ap')||{}).value||'';
