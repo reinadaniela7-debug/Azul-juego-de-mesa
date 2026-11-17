@@ -88,3 +88,6 @@ Sí: los datos de `firebase-config.js` **no son contraseñas**, están pensados 
 - **Confirmar (online):** en partidas con amigos no se puede retroceder una jugada que otros ya vieron, así que antes de colocar aparece una confirmación con vista previa. Se coloca sola a los 10 segundos; puedes confirmar al instante, cancelar o tocar otra línea para cambiar el destino.
 - **Aviso de última ronda:** el juego avisa cuando la ronda actual terminará la partida (🏁), o cuando podría ser la última (⚠).
 - **Marca:** "Azul" es un juego de Michael Kiesling publicado por Plan B Games. Esta es una versión de fans, con arte propio, para uso personal y sin fines comerciales. Si algún día la usaras comercialmente, tendrías que cambiar el nombre y contar con los derechos.
+
+## Foto de perfil
+Con la sesión iniciada, en **Mi perfil → Subir foto de perfil** puedes elegir una imagen. Se recorta y se reduce a 96×96 px y se guarda en tu perfil (Firestore, no hace falta Firebase Storage). Aparece junto a tu nombre en la barra de puntos y en tu tablero, y tus amigos la ven también en partidas en línea.
